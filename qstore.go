@@ -11,8 +11,6 @@ type Qstore interface {
 	ReadFrom(key string, idx int64) ([]byte, error)
 	//readFromTo
 	ReadFromTo(key string, fromIdx, ToIdx int64) ([]byte, error)
-	//truncate
-	Truncate(key string, idx int64) error
 }
 
 type qstore struct {
@@ -54,9 +52,5 @@ func (q *qstore) ReadFrom(key string, idx int64) ([]byte, error) {
 }
 
 func (q *qstore) ReadFromTo(key string, fromIdx, ToIdx int64) ([]byte, error) {
-
-}
-
-func (q *qstore) Truncate(key string, idx int64) error {
 
 }

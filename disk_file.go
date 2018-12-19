@@ -2,19 +2,23 @@ package qstore
 
 import (
 	"encoding/binary"
+	"io/ioutil"
 	"os"
 	"strconv"
 )
 
 type diskFile struct {
-	number     int
-	preName    string
-	startIdx   uint64
-	endIdx     uint64
+	number  int
+	preName string
+	opt     *Options
+
+	startIdx uint64
+	endIdx   uint64
+	idxOff   []byte
+
 	idxFile    *os.File
 	dataFile   *os.File
 	dataFileSz uint64
-	opt        *Options
 }
 
 func newDiskFile(number int, preName string, startIndex uint64, opt *Options) (*diskFile, error) {
@@ -29,14 +33,21 @@ func newDiskFile(number int, preName string, startIndex uint64, opt *Options) (*
 	}
 	ifd, _ := idxFile.Stat()
 	var startIdx, endIdx uint64
-	if ifd.Size() >= 16 {
-		idxOff := make([]byte, 16)
-		idxFile.ReadAt(idxOff, 0)
-		startIdx, _ = decode(idxOff)
-		idxFile.ReadAt(idxOff, ifd.Size()-8)
-		endIdx, _ = decode(idxOff)
+	var idxOff []byte
+	idxLen := ifd.Size()
+	if idxLen >= 16 {
+		idxOff, err = ioutil.ReadAll(idxFile)
+		if err != nil {
+			return nil, err
+		}
+		//idxOff := make([]byte, 16)
+		//idxFile.ReadAt(idxOff, 0)
+		startIdx, _ = decode(idxOff[:16])
+		//idxFile.ReadAt(idxOff, ifd.Size()-8)
+		endIdx, _ = decode(idxOff[idxLen-16:])
 	} else {
 		startIdx, endIdx = startIndex, startIndex
+		idxOff = make([]byte, 0)
 	}
 	dfd, _ := dataFile.Stat()
 	return &diskFile{
@@ -48,6 +59,7 @@ func newDiskFile(number int, preName string, startIndex uint64, opt *Options) (*
 		dataFile:   dataFile,
 		dataFileSz: uint64(dfd.Size()),
 		opt:        opt,
+		idxOff:     idxOff,
 	}, nil
 }
 
@@ -66,6 +78,7 @@ func (df *diskFile) writeIdx(idx, offset uint64) error {
 	if idx > df.endIdx {
 		df.endIdx = idx
 	}
+	df.idxOff = append(df.idxOff, byt)
 	return nil
 }
 
@@ -83,9 +96,13 @@ func (df *diskFile) write(b []byte) (uint64, error) {
 func (df *diskFile) readIdx(idx uint64) (uint64, error) {
 	off := int64((idx - df.startIdx) * 16)
 	idxOffByt := make([]byte, 16)
-	_, err := df.idxFile.ReadAt(idxOffByt, off)
-	if err != nil {
-		return 0, err
+	if len(df.idxOff) >= 16 {
+		idxOffByt = df.idxOff[off : off+16]
+	} else {
+		_, err := df.idxFile.ReadAt(idxOffByt, off)
+		if err != nil {
+			return 0, err
+		}
 	}
 	_, offset := decode(idxOffByt)
 	return offset, nil
