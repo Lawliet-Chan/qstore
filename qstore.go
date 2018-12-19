@@ -20,7 +20,12 @@ type qstore struct {
 	keyQueue *sync.Map // key is string,value is *diskQueue
 }
 
-func NewQstore(path string) (Qstore, error) {
+type Options struct {
+	NoSync bool
+	Mmap   bool
+}
+
+func NewQstore(path string, opt *Options) (Qstore, error) {
 	return &qstore{
 		path:     path,
 		keyQueue: &sync.Map{},
