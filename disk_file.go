@@ -23,6 +23,11 @@ type diskFile struct {
 	dataFileSz uint64
 	//put committed-data-file-size in disk
 	committed *os.File
+
+	//copy-on-write file data
+	cowData []byte
+	//writing but uncommitted data
+	writingData []byte
 }
 
 func newDiskFile(number int, preName string, startIndex uint64, opt *Options) (*diskFile, error) {
@@ -74,6 +79,7 @@ func newDiskFile(number int, preName string, startIndex uint64, opt *Options) (*
 		dataFileSz: dataFileSz,
 		opt:        opt,
 		idxOff:     idxOff,
+		cowData:    make([]byte, 0),
 	}, nil
 }
 
@@ -102,6 +108,10 @@ func (df *diskFile) writeIdx(idx, offset uint64, len int) error {
 		df.endIdx = idx
 	}
 	df.idxOff = append(df.idxOff, byt...)
+
+	df.cowData = append(df.cowData, df.writingData...)
+	df.writingData = nil
+
 	return nil
 }
 
@@ -114,6 +124,9 @@ func (df *diskFile) write(b []byte) (uint64, uint64, error) {
 	if !df.opt.NoSync {
 		df.dataFile.Sync()
 	}
+
+	df.writingData = b
+
 	return df.endIdx + 1, df.dataFileSz + uint64(n), nil
 }
 
@@ -132,8 +145,11 @@ func (df *diskFile) readIdx(idx uint64) (uint64, error) {
 	return offset, nil
 }
 
-func (df *diskFile) read(startOff, endOff uint64) ([]byte, error) {
+func (df *diskFile) read(startOff, endOff uint64, readCow bool) ([]byte, error) {
 	len := int(endOff - startOff)
+	if readCow {
+		return df.cowData[int(startOff):int(endOff)], nil
+	}
 	if df.opt.Mmap {
 		return mmapRead(df.dataFile, int64(startOff), len)
 	}

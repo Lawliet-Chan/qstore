@@ -9,7 +9,7 @@ import (
 
 type Qstore interface {
 	//write
-	OpenTx(key string) (*tx, error)
+	OpenTx(key string) (*Tx, error)
 	//read
 	Read(key string, idx uint64) ([]byte, error)
 	//readbatch

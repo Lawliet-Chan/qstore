@@ -66,9 +66,9 @@ func (dq *diskQueue) read(startIdx, endIdx uint64) ([]byte, error) {
 	}
 
 	if sdf == edf {
-		return sdf.read(startOff, endOff)
+		return sdf.read(startOff, endOff, edf == dq.currentFile)
 	}
-	byt, err := sdf.read(startOff, sdf.endIndex())
+	byt, err := sdf.read(startOff, sdf.endIndex(), false)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func (dq *diskQueue) read(startIdx, endIdx uint64) ([]byte, error) {
 		}
 		byt = append(byt, bytAll...)
 	}
-	endByt, err := edf.read(edf.startIndex(), endOff)
+	endByt, err := edf.read(edf.startIndex(), endOff, edf == dq.currentFile)
 	if err != nil {
 		return nil, err
 	}
