@@ -16,18 +16,26 @@ type diskFile struct {
 	endIdx   uint64
 	idxOff   []byte
 
-	idxFile    *os.File
-	dataFile   *os.File
+	idxFile  *os.File
+	dataFile *os.File
+
+	//committed data file size
 	dataFileSz uint64
+	//put committed-data-file-size in disk
+	committed *os.File
 }
 
 func newDiskFile(number int, preName string, startIndex uint64, opt *Options) (*diskFile, error) {
 	name := preName + "-" + strconv.Itoa(number)
-	idxFile, err := os.OpenFile(name, os.O_CREATE|os.O_RDWR, 0666)
+	idxFile, err := os.OpenFile(name+".idx", os.O_CREATE|os.O_RDWR, 0666)
 	if err != nil {
 		return nil, err
 	}
-	dataFile, err := os.OpenFile(name, os.O_CREATE|os.O_RDWR, 0666)
+	dataFile, err := os.OpenFile(name+".data", os.O_CREATE|os.O_RDWR, 0666)
+	if err != nil {
+		return nil, err
+	}
+	committed, err := os.OpenFile(name+".cmt", os.O_CREATE|os.O_RDWR, 0666)
 	if err != nil {
 		return nil, err
 	}
@@ -40,16 +48,22 @@ func newDiskFile(number int, preName string, startIndex uint64, opt *Options) (*
 		if err != nil {
 			return nil, err
 		}
-		//idxOff := make([]byte, 16)
-		//idxFile.ReadAt(idxOff, 0)
-		startIdx, _ = decode(idxOff[:16])
-		//idxFile.ReadAt(idxOff, ifd.Size()-8)
-		endIdx, _ = decode(idxOff[idxLen-16:])
+		startIdx = decodeUint64(idxOff[:16])
+		endIdx = decodeUint64(idxOff[idxLen-16:])
 	} else {
 		startIdx, endIdx = startIndex, startIndex
 		idxOff = make([]byte, 0)
 	}
-	dfd, _ := dataFile.Stat()
+	var dataFileSz uint64
+	cfd, _ := committed.Stat()
+	if cfd.Size() > 0 {
+		data, err := ioutil.ReadAll(committed)
+		if err != nil {
+			return nil, err
+		}
+		dataFileSz = decodeUint64(data)
+	}
+	dataFile.Truncate(int64(dataFileSz))
 	return &diskFile{
 		number:     number,
 		preName:    preName,
@@ -57,28 +71,37 @@ func newDiskFile(number int, preName string, startIndex uint64, opt *Options) (*
 		endIdx:     endIdx,
 		idxFile:    idxFile,
 		dataFile:   dataFile,
-		dataFileSz: uint64(dfd.Size()),
+		dataFileSz: dataFileSz,
 		opt:        opt,
 		idxOff:     idxOff,
 	}, nil
 }
 
-func (df *diskFile) writeIdx(idx, offset uint64) error {
+func (df *diskFile) writeIdx(idx, offset uint64, len int) error {
 	byt := encode(idx, offset)
 	_, err := df.idxFile.Write(byt)
 	if err != nil {
 		return err
 	}
+
+	cbyt := encodeUint64(df.dataFileSz + uint64(len))
+	_, err = df.committed.WriteAt(cbyt, 0)
+	if err != nil {
+		return err
+	}
 	if !df.opt.NoSync {
 		df.idxFile.Sync()
+		df.committed.Sync()
 	}
+
+	df.dataFileSz += uint64(len)
 	if idx < df.startIdx {
 		df.startIdx = idx
 	}
 	if idx > df.endIdx {
 		df.endIdx = idx
 	}
-	df.idxOff = append(df.idxOff, byt)
+	df.idxOff = append(df.idxOff, byt...)
 	return nil
 }
 
@@ -130,4 +153,14 @@ func encode(idx, offset uint64) []byte {
 
 func decode(b []byte) (idx, offset uint64) {
 	return binary.BigEndian.Uint64(b[:8]), binary.BigEndian.Uint64(b[8:])
+}
+
+func encodeUint64(u uint64) []byte {
+	b := make([]byte, 8)
+	binary.BigEndian.PutUint64(b, u)
+	return b
+}
+
+func decodeUint64(b []byte) uint64 {
+	return binary.BigEndian.Uint64(b)
 }

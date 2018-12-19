@@ -16,21 +16,30 @@ type Qstore interface {
 type qstore struct {
 	path     string
 	keyQueue *sync.Map // key is string,value is *diskQueue
+	opt      *Options
 }
 
 type Options struct {
-	NoSync bool
-	Mmap   bool
+	NoSync      bool
+	Mmap        bool
+	FileMaxSize int64
 }
 
+var defaultFileMaxSize = 1024 * 1024 * 1024
+
 func NewQstore(path string, opt *Options) (Qstore, error) {
+	if opt == nil {
+
+	}
 	return &qstore{
 		path:     path,
 		keyQueue: &sync.Map{},
+		opt:      opt,
 	}, nil
 }
 
 func (q *qstore) OpenTx(key string) (t *tx, err error) {
+	key = q.path + key
 	dq, load := q.keyQueue.Load(key)
 	if !load {
 		dq, err = newDiskQueue(key)
@@ -44,13 +53,13 @@ func (q *qstore) OpenTx(key string) (t *tx, err error) {
 }
 
 func (q *qstore) Read(key string, idx int64) ([]byte, error) {
-
+	key = q.path + key
 }
 
 func (q *qstore) ReadFrom(key string, idx int64) ([]byte, error) {
-
+	key = q.path + key
 }
 
 func (q *qstore) ReadFromTo(key string, fromIdx, ToIdx int64) ([]byte, error) {
-
+	key = q.path + key
 }

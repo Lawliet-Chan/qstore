@@ -4,8 +4,8 @@ import "sync"
 
 type diskQueue struct {
 	path string
-	//map[string][]byte:
-	//key is filename , value is startIdxOff and endIdxOff. length is 32
+	//map[[32]byte]string:
+	//key is startIdxOff and endIdxOff,value is filename. length is 32
 	diskFiles *sync.Map
 }
 
