@@ -91,9 +91,13 @@ func (df *diskFile) readIdx(idx uint64) (uint64, error) {
 	return offset, nil
 }
 
-func (df *diskFile) read(startOff, endOff int64) ([]byte, error) {
-	data := make([]byte, int(endOff-startOff))
-	_, err := df.dataFile.ReadAt(data, startOff)
+func (df *diskFile) read(startOff, endOff uint64) ([]byte, error) {
+	len := int(endOff - startOff)
+	if df.opt.Mmap {
+		return mmapRead(df.dataFile, int64(startOff), len)
+	}
+	data := make([]byte, len)
+	_, err := df.dataFile.ReadAt(data, int64(startOff))
 	if err != nil {
 		return nil, err
 	}
