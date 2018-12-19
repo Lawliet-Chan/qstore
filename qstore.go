@@ -51,7 +51,7 @@ func NewQstore(dir string, opt *Options) (Qstore, error) {
 	}, nil
 }
 
-func (q *qstore) OpenTx(key string) (t *tx, err error) {
+func (q *qstore) OpenTx(key string) (t *Tx, err error) {
 	key = q.dirkey(key)
 	dq, load := q.keyQueue.Load(key)
 	if !load {
@@ -61,7 +61,7 @@ func (q *qstore) OpenTx(key string) (t *tx, err error) {
 		}
 		q.keyQueue.Store(key, dq)
 	}
-	t = &tx{dq: dq.(*diskQueue)}
+	t = &Tx{dq: dq.(*diskQueue)}
 	return
 }
 
@@ -71,8 +71,8 @@ func (q *qstore) Read(key string, idx uint64) ([]byte, error) {
 
 func (q *qstore) ReadBatch(key string, idx uint64, len int) ([]byte, error) {
 	key = q.dirkey(key)
-	queue, ok := q.keyQueue.Load(key)
-	if !ok {
+	queue, load := q.keyQueue.Load(key)
+	if !load {
 		return nil, errors.New("no key!")
 	}
 	return queue.(*diskQueue).read(idx, idx+uint64(len))

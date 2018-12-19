@@ -1,17 +1,27 @@
 package qstore
 
-type tx struct {
-	dq *diskQueue
+type Tx struct {
+	idx uint64
+	off uint64
+	len int
+	dq  *diskQueue
 }
 
-func (t *tx) Write(b []byte) (int64, error) {
-
+func (t *Tx) Write(b []byte) error {
+	idx, off, err := t.dq.write(b)
+	if err != nil {
+		return err
+	}
+	t.idx = idx
+	t.off = off
+	t.len = len(b)
+	return nil
 }
 
-func (t *tx) Commit() error {
-
+func (t *Tx) Commit() error {
+	return t.dq.writeIdx(t.idx, t.off, t.len)
 }
 
-func (t *tx) Abort() {
+func (t *Tx) Abort() {
 	t.dq.truncate()
 }

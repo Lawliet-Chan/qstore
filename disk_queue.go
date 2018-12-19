@@ -39,11 +39,11 @@ func (dq *diskQueue) writeIdx(idx, offset uint64, len int) error {
 	return dq.currentFile.writeIdx(idx, offset, len)
 }
 
-func (dq *diskQueue) write(b []byte) (uint64, error) {
+func (dq *diskQueue) write(b []byte) (uint64, uint64, error) {
 	if dq.currentFile.dataFileSize()+int64(len(b)) > dq.opt.FileMaxSize {
 		cf, err := newDiskFile(dq.currentFileNum+1, dq.key, dq.currentFile.endIndex()+1, dq.opt)
 		if err != nil {
-			return 0, err
+			return 0, 0, err
 		}
 		dq.currentFileNum++
 		dq.currentFile = cf

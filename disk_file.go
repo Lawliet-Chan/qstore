@@ -105,15 +105,16 @@ func (df *diskFile) writeIdx(idx, offset uint64, len int) error {
 	return nil
 }
 
-func (df *diskFile) write(b []byte) (uint64, error) {
+//return idx,offset,error
+func (df *diskFile) write(b []byte) (uint64, uint64, error) {
 	n, err := df.dataFile.Write(b)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 	if !df.opt.NoSync {
 		df.dataFile.Sync()
 	}
-	return df.dataFileSz + uint64(n), nil
+	return df.endIdx + 1, df.dataFileSz + uint64(n), nil
 }
 
 func (df *diskFile) readIdx(idx uint64) (uint64, error) {
