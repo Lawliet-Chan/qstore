@@ -7,15 +7,15 @@ type Tx struct {
 	dq  *diskQueue
 }
 
-func (t *Tx) Write(b []byte) error {
+func (t *Tx) Write(b []byte) (uint64, error) {
 	idx, off, err := t.dq.write(b)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	t.idx = idx
 	t.off = off
 	t.len = len(b)
-	return nil
+	return idx, nil
 }
 
 func (t *Tx) Commit() error {

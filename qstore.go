@@ -31,7 +31,7 @@ type Options struct {
 var defaultFileMaxSize = 1024 * 1024 * 1024
 
 func NewQstore(dir string, opt *Options) (Qstore, error) {
-	err := os.MkdirAll(dir, 0666)
+	err := os.MkdirAll(dir, os.ModePerm)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +41,9 @@ func NewQstore(dir string, opt *Options) (Qstore, error) {
 	}
 
 	if opt == nil {
-		opt.FileMaxSize = int64(defaultFileMaxSize)
+		opt = &Options{
+			FileMaxSize: int64(defaultFileMaxSize),
+		}
 	}
 
 	return &qstore{
