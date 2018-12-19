@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strconv"
+	"fmt"
 )
 
 type diskFile struct {
@@ -32,15 +33,15 @@ type diskFile struct {
 
 func newDiskFile(number int, preName string, startIndex uint64, opt *Options) (*diskFile, error) {
 	name := preName + "-" + strconv.Itoa(number)
-	idxFile, err := os.OpenFile(name+".idx", os.O_RDWR|os.O_CREATE, 0666)
+	idxFile, err := os.OpenFile(name+".idx", os.O_RDWR|os.O_CREATE, os.ModePerm)
 	if err != nil {
 		return nil, err
 	}
-	dataFile, err := os.OpenFile(name+".data", os.O_RDWR|os.O_CREATE, 0666)
+	dataFile, err := os.OpenFile(name+".data", os.O_RDWR|os.O_CREATE, os.ModePerm)
 	if err != nil {
 		return nil, err
 	}
-	committed, err := os.OpenFile(name+".cmt", os.O_RDWR|os.O_CREATE, 0666)
+	committed, err := os.OpenFile(name+".cmt", os.O_RDWR|os.O_CREATE, os.ModePerm)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +92,9 @@ func (df *diskFile) writeIdx(idx, offset uint64, len int) error {
 	}
 
 	cbyt := encodeUint64(df.dataFileSz + uint64(len))
-	_, err = df.committed.WriteAt(cbyt, 0)
+	fmt.Println("length is ",df.dataFileSz+uint64(len))
+	fmt.Println("datafile size is ",cbyt)
+	_, err = df.committed.WriteAt(cbyt,0)
 	if err != nil {
 		return err
 	}
@@ -186,8 +189,8 @@ func (df *diskFile) endIndex() uint64 {
 
 func encode(idx, offset uint64) []byte {
 	b := make([]byte, 16)
-	binary.BigEndian.PutUint64(b[:8], idx)
-	binary.BigEndian.PutUint64(b[8:], offset)
+	binary.LittleEndian.PutUint64(b[:8], idx)
+	binary.LittleEndian.PutUint64(b[8:], offset)
 	return b
 }
 
@@ -197,10 +200,10 @@ func decode(b []byte) (idx, offset uint64) {
 
 func encodeUint64(u uint64) []byte {
 	b := make([]byte, 8)
-	binary.BigEndian.PutUint64(b, u)
+	binary.LittleEndian.PutUint64(b, u)
 	return b
 }
 
 func decodeUint64(b []byte) uint64 {
-	return binary.BigEndian.Uint64(b)
+	return binary.LittleEndian.Uint64(b)
 }
