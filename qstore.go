@@ -1,21 +1,24 @@
 package qstore
 
-import "sync"
+import (
+	"github.com/pkg/errors"
+	"os"
+	"strings"
+	"sync"
+)
 
 type Qstore interface {
 	//write
 	OpenTx(key string) (*tx, error)
 	//read
-	Read(key string, idx int64) ([]byte, error)
-	//readFrom
-	ReadFrom(key string, idx int64) ([]byte, error)
-	//readFromTo
-	ReadFromTo(key string, fromIdx, ToIdx int64) ([]byte, error)
+	Read(key string, idx uint64) ([]byte, error)
+	//readbatch
+	ReadBatch(key string, idx uint64, len int) ([]byte, error)
 }
 
 type qstore struct {
-	path     string
-	keyQueue *sync.Map // key is string,value is *diskQueue
+	dir      string
+	keyQueue *sync.Map // key is string(dirkey),value is *diskQueue
 	opt      *Options
 }
 
@@ -27,22 +30,32 @@ type Options struct {
 
 var defaultFileMaxSize = 1024 * 1024 * 1024
 
-func NewQstore(path string, opt *Options) (Qstore, error) {
-	if opt == nil {
-
+func NewQstore(dir string, opt *Options) (Qstore, error) {
+	err := os.MkdirAll(dir, 0666)
+	if err != nil {
+		return nil, err
 	}
+
+	if !strings.HasSuffix(dir, "/") {
+		dir += "/"
+	}
+
+	if opt == nil {
+		opt.FileMaxSize = int64(defaultFileMaxSize)
+	}
+
 	return &qstore{
-		path:     path,
+		dir:      dir,
 		keyQueue: &sync.Map{},
 		opt:      opt,
 	}, nil
 }
 
 func (q *qstore) OpenTx(key string) (t *tx, err error) {
-	key = q.path + key
+	key = q.dirkey(key)
 	dq, load := q.keyQueue.Load(key)
 	if !load {
-		dq, err = newDiskQueue(key)
+		dq, err = newDiskQueue(key, q.opt)
 		if err != nil {
 			return
 		}
@@ -52,14 +65,19 @@ func (q *qstore) OpenTx(key string) (t *tx, err error) {
 	return
 }
 
-func (q *qstore) Read(key string, idx int64) ([]byte, error) {
-	key = q.path + key
+func (q *qstore) Read(key string, idx uint64) ([]byte, error) {
+	return q.ReadBatch(key, idx, 1)
 }
 
-func (q *qstore) ReadFrom(key string, idx int64) ([]byte, error) {
-	key = q.path + key
+func (q *qstore) ReadBatch(key string, idx uint64, len int) ([]byte, error) {
+	key = q.dirkey(key)
+	queue, ok := q.keyQueue.Load(key)
+	if !ok {
+		return nil, errors.New("no key!")
+	}
+	return queue.(*diskQueue).read(idx, idx+uint64(len))
 }
 
-func (q *qstore) ReadFromTo(key string, fromIdx, ToIdx int64) ([]byte, error) {
-	key = q.path + key
+func (q *qstore) dirkey(key string) string {
+	return q.dir + key
 }

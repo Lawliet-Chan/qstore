@@ -27,15 +27,15 @@ type diskFile struct {
 
 func newDiskFile(number int, preName string, startIndex uint64, opt *Options) (*diskFile, error) {
 	name := preName + "-" + strconv.Itoa(number)
-	idxFile, err := os.OpenFile(name+".idx", os.O_CREATE|os.O_RDWR, 0666)
+	idxFile, err := os.OpenFile(name+".idx", os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		return nil, err
 	}
-	dataFile, err := os.OpenFile(name+".data", os.O_CREATE|os.O_RDWR, 0666)
+	dataFile, err := os.OpenFile(name+".data", os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		return nil, err
 	}
-	committed, err := os.OpenFile(name+".cmt", os.O_CREATE|os.O_RDWR, 0666)
+	committed, err := os.OpenFile(name+".cmt", os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		return nil, err
 	}
@@ -142,6 +142,29 @@ func (df *diskFile) read(startOff, endOff uint64) ([]byte, error) {
 		return nil, err
 	}
 	return data, nil
+}
+
+func (df *diskFile) readAll() ([]byte, error) {
+	if df.opt.Mmap {
+		return mmapRead(df.dataFile, 0, int(df.dataFileSz))
+	}
+	return ioutil.ReadAll(df.dataFile)
+}
+
+func (df *diskFile) truncate() {
+	df.dataFile.Truncate(int64(df.dataFileSz))
+}
+
+func (df *diskFile) dataFileSize() int64 {
+	return int64(df.dataFileSz)
+}
+
+func (df *diskFile) startIndex() uint64 {
+	return df.startIdx
+}
+
+func (df *diskFile) endIndex() uint64 {
+	return df.endIdx
 }
 
 func encode(idx, offset uint64) []byte {

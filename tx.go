@@ -12,6 +12,6 @@ func (t *tx) Commit() error {
 
 }
 
-func (t *tx) Abort() error {
-
+func (t *tx) Abort() {
+	t.dq.truncate()
 }
