@@ -25,7 +25,7 @@ type diskFile struct {
 	//put committed-data-file-size in disk
 	committed *os.File
 
-	//copy-on-write file data
+	//copy-on-write file data, the data are committed
 	cowData []byte
 	//writing but uncommitted data
 	writingData []byte
