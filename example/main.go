@@ -24,7 +24,7 @@ func main() {
 	if err != nil {
 		panic("commit error: " + err.Error())
 	}
-
+	fmt.Println("commit success")
 	d, err := q.Read("topic", 0)
 	if err != nil {
 		panic("read data error: " + err.Error())

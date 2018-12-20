@@ -2,10 +2,10 @@ package qstore
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"strconv"
-	"fmt"
 )
 
 type diskFile struct {
@@ -77,6 +77,7 @@ func newDiskFile(number int, preName string, startIndex uint64, opt *Options) (*
 		endIdx:     endIdx,
 		idxFile:    idxFile,
 		dataFile:   dataFile,
+		committed:  committed,
 		dataFileSz: dataFileSz,
 		opt:        opt,
 		idxOff:     idxOff,
@@ -92,9 +93,9 @@ func (df *diskFile) writeIdx(idx, offset uint64, len int) error {
 	}
 
 	cbyt := encodeUint64(df.dataFileSz + uint64(len))
-	fmt.Println("length is ",df.dataFileSz+uint64(len))
-	fmt.Println("datafile size is ",cbyt)
-	_, err = df.committed.WriteAt(cbyt,0)
+	//fmt.Println("length is ", df.dataFileSz+uint64(len))
+	//fmt.Println("datafile size is ", cbyt)
+	_, err = df.committed.WriteAt(cbyt, 0)
 	if err != nil {
 		return err
 	}
@@ -130,13 +131,16 @@ func (df *diskFile) write(b []byte) (uint64, uint64, error) {
 
 	df.writingData = b
 
-	return df.endIdx + 1, df.dataFileSz + uint64(n), nil
+	return df.endIdx, df.dataFileSz + uint64(n), nil
 }
 
 func (df *diskFile) readIdx(idx uint64) (uint64, error) {
 	off := int64((idx - df.startIdx) * 16)
 	idxOffByt := make([]byte, 16)
 	if len(df.idxOff) >= 16 {
+		fmt.Printf("idx is %d,startIdx is %d \n", idx, df.startIdx)
+		fmt.Println("idxOff is ", decodeUint64(df.idxOff))
+		fmt.Println("idxOff length is ", len(df.idxOff))
 		idxOffByt = df.idxOff[off : off+16]
 	} else {
 		_, err := df.idxFile.ReadAt(idxOffByt, off)
@@ -189,8 +193,8 @@ func (df *diskFile) endIndex() uint64 {
 
 func encode(idx, offset uint64) []byte {
 	b := make([]byte, 16)
-	binary.LittleEndian.PutUint64(b[:8], idx)
-	binary.LittleEndian.PutUint64(b[8:], offset)
+	binary.BigEndian.PutUint64(b[:8], idx)
+	binary.BigEndian.PutUint64(b[8:], offset)
 	return b
 }
 
@@ -200,10 +204,10 @@ func decode(b []byte) (idx, offset uint64) {
 
 func encodeUint64(u uint64) []byte {
 	b := make([]byte, 8)
-	binary.LittleEndian.PutUint64(b, u)
+	binary.BigEndian.PutUint64(b, u)
 	return b
 }
 
 func decodeUint64(b []byte) uint64 {
-	return binary.LittleEndian.Uint64(b)
+	return binary.BigEndian.Uint64(b)
 }

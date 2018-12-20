@@ -1,6 +1,7 @@
 package qstore
 
 import (
+	"fmt"
 	"sync"
 )
 
@@ -106,6 +107,7 @@ func (fs *diskFiles) getDiskFile(idx uint64) *diskFile {
 	fs.RLock()
 	defer fs.RUnlock()
 	for _, df := range fs.dfs {
+		fmt.Printf("startIdx is %d, endIdx is %d \n", df.startIdx, df.endIdx)
 		if df.startIndex() <= idx && df.endIndex() >= idx {
 			return df
 		}
