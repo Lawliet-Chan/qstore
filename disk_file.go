@@ -154,6 +154,7 @@ func (df *diskFile) readIdx(idx uint64) (uint64, error) {
 
 func (df *diskFile) read(startOff, endOff uint64, readCow bool) ([]byte, error) {
 	len := int(endOff - startOff)
+
 	if readCow {
 		return df.cowData[int(startOff):int(endOff)], nil
 	}

@@ -2,6 +2,7 @@ package qstore
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"sync"
 )
 
@@ -55,15 +56,23 @@ func (dq *diskQueue) write(b []byte) (uint64, uint64, error) {
 }
 
 func (dq *diskQueue) read(startIdx, endIdx uint64) ([]byte, error) {
-	sdf := dq.diskFiles.getDiskFile(startIdx)
+	sdf, out := dq.diskFiles.getDiskFile(startIdx)
+	if out || sdf == nil {
+		return nil, errors.New("startIdx missing!")
+	}
 	startOff, err := sdf.readIdx(startIdx)
 	if err != nil {
 		return nil, err
 	}
-	edf := dq.diskFiles.getDiskFile(endIdx)
-	endOff, err := edf.readIdx(endIdx)
-	if err != nil {
-		return nil, err
+	edf, out := dq.diskFiles.getDiskFile(endIdx)
+	var endOff uint64
+	if out {
+		endOff = uint64(edf.dataFileSize())
+	} else {
+		endOff, err = edf.readIdx(endIdx)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if sdf == edf {
@@ -103,16 +112,24 @@ func (fs *diskFiles) getByNum(i int) *diskFile {
 	return fs.dfs[i]
 }
 
-func (fs *diskFiles) getDiskFile(idx uint64) *diskFile {
+//bool is if out of the max endIdx
+func (fs *diskFiles) getDiskFile(idx uint64) (*diskFile, bool) {
 	fs.RLock()
 	defer fs.RUnlock()
+	last := len(fs.dfs) - 1
+	if fs.dfs[last].endIndex() < idx {
+		return fs.dfs[last], true
+	}
+	//if fs.dfs[0].startIndex() > idx {
+	//
+	//}
 	for _, df := range fs.dfs {
 		fmt.Printf("startIdx is %d, endIdx is %d \n", df.startIdx, df.endIdx)
 		if df.startIndex() <= idx && df.endIndex() >= idx {
-			return df
+			return df, false
 		}
 	}
-	return nil
+	return nil, false
 }
 
 func (fs *diskFiles) addDiskFile(d *diskFile) {

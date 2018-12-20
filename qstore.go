@@ -68,7 +68,7 @@ func (q *qstore) OpenTx(key string) (t *Tx, err error) {
 }
 
 func (q *qstore) Read(key string, idx uint64) ([]byte, error) {
-	return q.ReadBatch(key, idx, 0)
+	return q.ReadBatch(key, idx, 1)
 }
 
 func (q *qstore) ReadBatch(key string, idx uint64, len int) ([]byte, error) {
