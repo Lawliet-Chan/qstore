@@ -93,8 +93,6 @@ func (df *diskFile) writeIdx(idx, offset uint64, len int) error {
 	}
 
 	cbyt := encodeUint64(df.dataFileSz + uint64(len))
-	//fmt.Println("length is ", df.dataFileSz+uint64(len))
-	//fmt.Println("datafile size is ", cbyt)
 	_, err = df.committed.WriteAt(cbyt, 0)
 	if err != nil {
 		return err
@@ -121,7 +119,7 @@ func (df *diskFile) writeIdx(idx, offset uint64, len int) error {
 
 //return idx,offset,error
 func (df *diskFile) write(b []byte) (uint64, uint64, error) {
-	n, err := df.dataFile.Write(b)
+	_, err := df.dataFile.Write(b)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -131,16 +129,13 @@ func (df *diskFile) write(b []byte) (uint64, uint64, error) {
 
 	df.writingData = b
 
-	return df.endIdx, df.dataFileSz + uint64(n), nil
+	return df.endIdx, df.dataFileSz, nil
 }
 
 func (df *diskFile) readIdx(idx uint64) (uint64, error) {
 	off := int64((idx - df.startIdx) * 16)
 	idxOffByt := make([]byte, 16)
 	if len(df.idxOff) >= 16 {
-		fmt.Printf("idx is %d,startIdx is %d \n", idx, df.startIdx)
-		fmt.Println("idxOff is ", decodeUint64(df.idxOff))
-		fmt.Println("idxOff length is ", len(df.idxOff))
 		idxOffByt = df.idxOff[off : off+16]
 	} else {
 		_, err := df.idxFile.ReadAt(idxOffByt, off)
@@ -153,15 +148,17 @@ func (df *diskFile) readIdx(idx uint64) (uint64, error) {
 }
 
 func (df *diskFile) read(startOff, endOff uint64, readCow bool) ([]byte, error) {
-	len := int(endOff - startOff)
+	length := int(endOff - startOff)
 
-	if readCow {
+	if readCow && len(df.cowData) > 0 {
+		fmt.Println("cow data is ", string(df.cowData))
+		fmt.Printf("startOff is %d, endOff is %d\n", startOff, endOff)
 		return df.cowData[int(startOff):int(endOff)], nil
 	}
 	if df.opt.Mmap {
-		return mmapRead(df.dataFile, int64(startOff), len)
+		return mmapRead(df.dataFile, int64(startOff), length)
 	}
-	data := make([]byte, len)
+	data := make([]byte, length)
 	_, err := df.dataFile.ReadAt(data, int64(startOff))
 	if err != nil {
 		return nil, err

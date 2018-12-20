@@ -1,7 +1,6 @@
 package qstore
 
 import (
-	"fmt"
 	"github.com/pkg/errors"
 	"sync"
 )
@@ -74,6 +73,7 @@ func (dq *diskQueue) read(startIdx, endIdx uint64) ([]byte, error) {
 			return nil, err
 		}
 	}
+	//fmt.Printf("startOff is %d, endOff is %d\n",startOff,endOff)
 
 	if sdf == edf {
 		return sdf.read(startOff, endOff, edf == dq.currentFile)
@@ -124,7 +124,7 @@ func (fs *diskFiles) getDiskFile(idx uint64) (*diskFile, bool) {
 	//
 	//}
 	for _, df := range fs.dfs {
-		fmt.Printf("startIdx is %d, endIdx is %d \n", df.startIdx, df.endIdx)
+		//fmt.Printf("startIdx is %d, endIdx is %d \n", df.startIdx, df.endIdx)
 		if df.startIndex() <= idx && df.endIndex() >= idx {
 			return df, false
 		}
