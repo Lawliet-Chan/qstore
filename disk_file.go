@@ -70,6 +70,11 @@ func newDiskFile(number int, preName string, startIndex uint64, opt *Options) (*
 		dataFileSz = decodeUint64(data)
 	}
 	dataFile.Truncate(int64(dataFileSz))
+
+	cow, err := ioutil.ReadAll(dataFile)
+	if err != nil {
+		return nil, err
+	}
 	return &diskFile{
 		number:     number,
 		preName:    preName,
@@ -81,7 +86,7 @@ func newDiskFile(number int, preName string, startIndex uint64, opt *Options) (*
 		dataFileSz: dataFileSz,
 		opt:        opt,
 		idxOff:     idxOff,
-		cowData:    make([]byte, 0),
+		cowData:    cow,
 	}, nil
 }
 
