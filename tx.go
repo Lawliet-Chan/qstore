@@ -12,7 +12,7 @@ func (t *Tx) Write(b []byte) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	t.idx = idx
+	t.idx = idx + 1
 	t.off = off
 	t.len = len(b)
 	return idx, nil

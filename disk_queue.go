@@ -1,6 +1,7 @@
 package qstore
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
 	"sync"
 )
@@ -55,41 +56,42 @@ func (dq *diskQueue) write(b []byte) (uint64, uint64, error) {
 }
 
 func (dq *diskQueue) read(startIdx, endIdx uint64) ([]byte, error) {
-	sdf, out := dq.diskFiles.getDiskFile(startIdx)
-	if out || sdf == nil {
-		return nil, errors.New("startIdx missing!")
+	dfs, out := dq.diskFiles.getDiskFiles(startIdx, endIdx)
+	if dfs == nil {
+		return nil, errors.New("idx missing!")
 	}
-	startOff, err := sdf.readIdx(startIdx)
+	startOff, err := dfs[0].readIdx(startIdx)
 	if err != nil {
 		return nil, err
 	}
-	edf, out := dq.diskFiles.getDiskFile(endIdx)
 	var endOff uint64
+	lastFileNum := len(dfs) - 1
 	if out {
-		endOff = uint64(edf.dataFileSize())
+		endOff = uint64(dfs[lastFileNum].dataFileSize())
 	} else {
-		endOff, err = edf.readIdx(endIdx)
+		endOff, err = dfs[len(dfs)-1].readIdx(endIdx)
 		if err != nil {
 			return nil, err
 		}
 	}
-	//fmt.Printf("startOff is %d, endOff is %d\n",startOff,endOff)
-
-	if sdf == edf {
-		return sdf.read(startOff, endOff, edf == dq.currentFile)
+	if len(dfs) == 1 {
+		df := dfs[0]
+		return df.read(startOff, endOff, df == dq.currentFile)
 	}
-	byt, err := sdf.read(startOff, sdf.endIndex(), false)
+
+	//fmt.Printf("startOff is %d, endOff is %d\n",startOff,endOff)
+	byt, err := dfs[0].read(startOff, uint64(dfs[0].dataFileSize()), false)
 	if err != nil {
 		return nil, err
 	}
-	for i := sdf.number + 1; i < edf.number; i++ {
-		bytAll, err := dq.diskFiles.getByNum(i).readAll()
+	for i := 1; i < lastFileNum; i++ {
+		bytAll, err := dfs[i].readAll()
 		if err != nil {
 			return nil, err
 		}
 		byt = append(byt, bytAll...)
 	}
-	endByt, err := edf.read(edf.startIndex(), endOff, edf == dq.currentFile)
+	endByt, err := dfs[lastFileNum].read(0, endOff, dfs[lastFileNum] == dq.currentFile)
 	if err != nil {
 		return nil, err
 	}
@@ -113,23 +115,31 @@ func (fs *diskFiles) getByNum(i int) *diskFile {
 }
 
 //bool is if out of the max endIdx
-func (fs *diskFiles) getDiskFile(idx uint64) (*diskFile, bool) {
+func (fs *diskFiles) getDiskFiles(startIdx, endIdx uint64) (dfls []*diskFile, out bool) {
 	fs.RLock()
 	defer fs.RUnlock()
 	last := len(fs.dfs) - 1
-	if fs.dfs[last].endIndex() < idx {
-		return fs.dfs[last], true
+	if fs.dfs[0].startIndex() > startIdx || fs.dfs[last].endIndex() < startIdx {
+		return
 	}
-	//if fs.dfs[0].startIndex() > idx {
-	//
-	//}
-	for _, df := range fs.dfs {
-		//fmt.Printf("startIdx is %d, endIdx is %d \n", df.startIdx, df.endIdx)
-		if df.startIndex() <= idx && df.endIndex() >= idx {
-			return df, false
+	var startFileNum, endFileNum int
+	for i, df := range fs.dfs {
+		fmt.Printf("startIdx is %d, endIdx is %d \n", df.startIdx, df.endIdx)
+		fmt.Printf("type in startidx is %d,endIdx is %d\n", startIdx, endIdx)
+		if df.startIndex() <= startIdx && df.endIndex() >= startIdx {
+			startFileNum = i
+		}
+		if df.startIndex() <= endIdx && df.endIndex() > endIdx {
+			endFileNum = i
 		}
 	}
-	return nil, false
+	dfls = fs.dfs[startFileNum : endFileNum+1]
+
+	if fs.dfs[last].endIndex() <= endIdx {
+		return dfls, true
+	}
+
+	return
 }
 
 func (fs *diskFiles) addDiskFile(d *diskFile) {

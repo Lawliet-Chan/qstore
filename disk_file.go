@@ -54,8 +54,12 @@ func newDiskFile(number int, preName string, startIndex uint64, opt *Options) (*
 		if err != nil {
 			return nil, err
 		}
-		startIdx = decodeUint64(idxOff[:16])
-		endIdx = decodeUint64(idxOff[idxLen-16:])
+		fmt.Println("init idxOff is ", idxOff)
+		i, o := decode(idxOff[idxLen-16:])
+		fmt.Printf("i=%d,o=%d\n", i, o)
+		startIdx = decodeUint64(idxOff[:8])
+		fmt.Println("init endIdx is ", idxOff[idxLen-16:])
+		endIdx = decodeUint64(idxOff[idxLen-16 : idxLen-8])
 	} else {
 		startIdx, endIdx = startIndex, startIndex
 		idxOff = make([]byte, 0)
@@ -92,6 +96,7 @@ func newDiskFile(number int, preName string, startIndex uint64, opt *Options) (*
 
 func (df *diskFile) writeIdx(idx, offset uint64, len int) error {
 	byt := encode(idx, offset)
+	fmt.Println("writeIdx to disk is ", byt)
 	_, err := df.idxFile.Write(byt)
 	if err != nil {
 		return err
@@ -115,7 +120,7 @@ func (df *diskFile) writeIdx(idx, offset uint64, len int) error {
 		df.endIdx = idx
 	}
 	df.idxOff = append(df.idxOff, byt...)
-
+	fmt.Println("writeIdx is ", df.idxOff)
 	df.cowData = append(df.cowData, df.writingData...)
 	df.writingData = nil
 
@@ -141,6 +146,7 @@ func (df *diskFile) readIdx(idx uint64) (uint64, error) {
 	off := int64((idx - df.startIdx) * 16)
 	idxOffByt := make([]byte, 16)
 	if len(df.idxOff) >= 16 {
+		fmt.Printf("readIdx off=%d, idxOff=%v,  df.idxOff len=%d\n", off, df.idxOff, len(df.idxOff))
 		idxOffByt = df.idxOff[off : off+16]
 	} else {
 		_, err := df.idxFile.ReadAt(idxOffByt, off)
