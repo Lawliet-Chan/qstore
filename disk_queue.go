@@ -27,6 +27,8 @@ func newDiskQueue(key string, opt *Options) (*diskQueue, error) {
 	dkfs := &diskFiles{
 		dfs: make([]*diskFile, 0),
 	}
+	//TODO:need to pickup all diskFiles from disk.
+
 	dkfs.addDiskFile(cf)
 	return &diskQueue{
 		key:            key,
@@ -118,6 +120,7 @@ func (fs *diskFiles) getByNum(i int) *diskFile {
 func (fs *diskFiles) getDiskFiles(startIdx, endIdx uint64) (dfls []*diskFile, out bool) {
 	fs.RLock()
 	defer fs.RUnlock()
+	fmt.Printf("type in startidx is %d,endIdx is %d\n", startIdx, endIdx)
 	last := len(fs.dfs) - 1
 	if fs.dfs[0].startIndex() > startIdx || fs.dfs[last].endIndex() < startIdx {
 		return
@@ -125,7 +128,6 @@ func (fs *diskFiles) getDiskFiles(startIdx, endIdx uint64) (dfls []*diskFile, ou
 	var startFileNum, endFileNum int
 	for i, df := range fs.dfs {
 		fmt.Printf("startIdx is %d, endIdx is %d \n", df.startIdx, df.endIdx)
-		fmt.Printf("type in startidx is %d,endIdx is %d\n", startIdx, endIdx)
 		if df.startIndex() <= startIdx && df.endIndex() >= startIdx {
 			startFileNum = i
 		}
