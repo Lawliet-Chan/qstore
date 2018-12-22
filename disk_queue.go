@@ -3,11 +3,14 @@ package qstore
 import (
 	"fmt"
 	"github.com/pkg/errors"
+	"io/ioutil"
+	"strconv"
+	"strings"
 	"sync"
 )
 
 type diskQueue struct {
-	key string
+	dkey string
 
 	diskFiles *diskFiles
 
@@ -19,22 +22,44 @@ type diskQueue struct {
 	opt *Options
 }
 
-func newDiskQueue(key string, opt *Options) (*diskQueue, error) {
-	cf, err := newDiskFile(0, key, 0, opt)
+func newDiskQueue(dir, key string, opt *Options) (*diskQueue, error) {
+	fis, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return nil, err
 	}
 	dkfs := &diskFiles{
 		dfs: make([]*diskFile, 0),
 	}
+	for _, fi := range fis {
+		if strings.HasSuffix(fi.Name(), ".data") {
+			names := strings.Split(fi.Name(), "-")
+			num, err := strconv.Atoi(strings.TrimRight(names[len(names)-1], ".data"))
+			if err != nil {
+				return nil, err
+			}
+			df, err := newDiskFile(num, dir+key, 0, opt)
+			if err != nil {
+				return nil, err
+			}
+			dkfs.addDiskFile(df)
+		}
+	}
+
+	if dkfs.isEmpty() {
+		cf, err := newDiskFile(0, dir+key, 0, opt)
+		if err != nil {
+			return nil, err
+		}
+		dkfs.addDiskFile(cf)
+	}
+
 	//TODO:need to pickup all diskFiles from disk.
 
-	dkfs.addDiskFile(cf)
 	return &diskQueue{
-		key:            key,
+		dkey:           dir + key,
 		diskFiles:      dkfs,
 		currentFileNum: 0,
-		currentFile:    cf,
+		currentFile:    dkfs.lastDiskFile(),
 		opt:            opt,
 	}, nil
 }
@@ -45,7 +70,7 @@ func (dq *diskQueue) writeIdx(idx, offset uint64, len int) error {
 
 func (dq *diskQueue) write(b []byte) (uint64, uint64, error) {
 	if dq.currentFile.dataFileSize()+int64(len(b)) > dq.opt.FileMaxSize {
-		cf, err := newDiskFile(dq.currentFileNum+1, dq.key, dq.currentFile.endIndex()+1, dq.opt)
+		cf, err := newDiskFile(dq.currentFileNum+1, dq.dkey, dq.currentFile.endIndex()+1, dq.opt)
 		if err != nil {
 			return 0, 0, err
 		}
@@ -123,6 +148,7 @@ func (fs *diskFiles) getDiskFiles(startIdx, endIdx uint64) (dfls []*diskFile, ou
 	fmt.Printf("type in startidx is %d,endIdx is %d\n", startIdx, endIdx)
 	last := len(fs.dfs) - 1
 	if fs.dfs[0].startIndex() > startIdx || fs.dfs[last].endIndex() < startIdx {
+		fmt.Printf("ALL diskFiles startIdx is %d, endIdx is %d\n", fs.dfs[0].startIndex(), fs.dfs[last].endIndex())
 		return
 	}
 	var startFileNum, endFileNum int
@@ -148,4 +174,16 @@ func (fs *diskFiles) addDiskFile(d *diskFile) {
 	fs.Lock()
 	defer fs.Unlock()
 	fs.dfs = append(fs.dfs, d)
+}
+
+func (fs *diskFiles) isEmpty() bool {
+	fs.RLock()
+	defer fs.RUnlock()
+	return len(fs.dfs) == 0
+}
+
+func (fs *diskFiles) lastDiskFile() *diskFile {
+	fs.RLock()
+	defer fs.RUnlock()
+	return fs.dfs[len(fs.dfs)-1]
 }
