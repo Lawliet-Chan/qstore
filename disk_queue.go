@@ -1,7 +1,6 @@
 package qstore
 
 import (
-	"fmt"
 	"github.com/pkg/errors"
 	"io/ioutil"
 	"strconv"
@@ -145,15 +144,15 @@ func (fs *diskFiles) getByNum(i int) *diskFile {
 func (fs *diskFiles) getDiskFiles(startIdx, endIdx uint64) (dfls []*diskFile, out bool) {
 	fs.RLock()
 	defer fs.RUnlock()
-	fmt.Printf("type in startidx is %d,endIdx is %d\n", startIdx, endIdx)
+	//fmt.Printf("type in startidx is %d,endIdx is %d\n", startIdx, endIdx)
 	last := len(fs.dfs) - 1
 	if fs.dfs[0].startIndex() > startIdx || fs.dfs[last].endIndex() < startIdx {
-		fmt.Printf("ALL diskFiles startIdx is %d, endIdx is %d\n", fs.dfs[0].startIndex(), fs.dfs[last].endIndex())
+		//fmt.Printf("ALL diskFiles startIdx is %d, endIdx is %d\n", fs.dfs[0].startIndex(), fs.dfs[last].endIndex())
 		return
 	}
 	var startFileNum, endFileNum int
 	for i, df := range fs.dfs {
-		fmt.Printf("startIdx is %d, endIdx is %d \n", df.startIdx, df.endIdx)
+		//fmt.Printf("startIdx is %d, endIdx is %d \n", df.startIdx, df.endIdx)
 		if df.startIndex() <= startIdx && df.endIndex() >= startIdx {
 			startFileNum = i
 		}
