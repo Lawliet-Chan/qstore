@@ -139,7 +139,11 @@ func (df *diskFile) write(b []byte) (uint64, uint64, error) {
 
 	df.writingData = b
 
-	return df.endIdx, df.dataFileSz, nil
+	if df.endIdx == df.startIdx {
+		return df.endIdx, df.dataFileSz, nil
+	}
+
+	return df.endIdx + 1, df.dataFileSz, nil
 }
 
 func (df *diskFile) readIdx(idx uint64) (uint64, error) {

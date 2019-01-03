@@ -54,7 +54,6 @@ func NewQstore(dir string, opt *Options) (Qstore, error) {
 }
 
 func (q *qstore) OpenTx(key string) (t *Tx, err error) {
-	//key = q.dirkey(key)
 	dq, load := q.keyQueue.Load(q.dirkey(key))
 	if !load {
 		dq, err = newDiskQueue(q.dir, key, q.opt)
