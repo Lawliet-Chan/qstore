@@ -22,7 +22,7 @@ type diskFile struct {
 	//committed data file size
 	dataFileSz uint64
 	//put committed-data-file-size in disk
-	committed *os.File
+	//committed *os.File
 
 	//copy-on-write file data, the data are committed
 	cowData []byte
@@ -40,12 +40,12 @@ func newDiskFile(number int, preName string, startIndex uint64, opt *Options) (*
 	if err != nil {
 		return nil, err
 	}
-	committed, err := os.OpenFile(name+".cmt", os.O_RDWR|os.O_CREATE, os.ModePerm)
-	if err != nil {
-		return nil, err
-	}
+	//	committed, err := os.OpenFile(name+".cmt", os.O_RDWR|os.O_CREATE, os.ModePerm)
+	//	if err != nil {
+	//		return nil, err
+	//	}
 	ifd, _ := idxFile.Stat()
-	var startIdx, endIdx uint64
+	var startIdx, endIdx, dataFileSz uint64
 	var idxOff []byte
 	idxLen := ifd.Size()
 	if idxLen >= 16 {
@@ -58,19 +58,10 @@ func newDiskFile(number int, preName string, startIndex uint64, opt *Options) (*
 		//fmt.Printf("i=%d,o=%d\n", i, o)
 		startIdx = decodeUint64(idxOff[:8])
 		//fmt.Println("init endIdx is ", idxOff[idxLen-16:])
-		endIdx = decodeUint64(idxOff[idxLen-16 : idxLen-8])
+		endIdx, dataFileSz = decode(idxOff[idxLen-16 : idxLen])
 	} else {
 		startIdx, endIdx = startIndex, startIndex
 		idxOff = make([]byte, 0)
-	}
-	var dataFileSz uint64
-	cfd, _ := committed.Stat()
-	if cfd.Size() > 0 {
-		data, err := ioutil.ReadAll(committed)
-		if err != nil {
-			return nil, err
-		}
-		dataFileSz = decodeUint64(data)
 	}
 	dataFile.Truncate(int64(dataFileSz))
 
@@ -79,13 +70,13 @@ func newDiskFile(number int, preName string, startIndex uint64, opt *Options) (*
 		return nil, err
 	}
 	return &diskFile{
-		number:     number,
-		preName:    preName,
-		startIdx:   startIdx,
-		endIdx:     endIdx,
-		idxFile:    idxFile,
-		dataFile:   dataFile,
-		committed:  committed,
+		number:   number,
+		preName:  preName,
+		startIdx: startIdx,
+		endIdx:   endIdx,
+		idxFile:  idxFile,
+		dataFile: dataFile,
+		//	committed:  committed,
 		dataFileSz: dataFileSz,
 		opt:        opt,
 		idxOff:     idxOff,
@@ -94,21 +85,15 @@ func newDiskFile(number int, preName string, startIndex uint64, opt *Options) (*
 }
 
 func (df *diskFile) writeIdx(idx, offset uint64, len int) error {
-	byt := encode(idx, offset)
+	byt := encode(idx, offset+uint64(len))
 	//fmt.Println("writeIdx to disk is ", byt)
 	_, err := df.idxFile.Write(byt)
 	if err != nil {
 		return err
 	}
 
-	cbyt := encodeUint64(df.dataFileSz + uint64(len))
-	_, err = df.committed.WriteAt(cbyt, 0)
-	if err != nil {
-		return err
-	}
 	if !df.opt.NoSync {
 		df.idxFile.Sync()
-		df.committed.Sync()
 	}
 
 	df.dataFileSz += uint64(len)
@@ -146,7 +131,11 @@ func (df *diskFile) write(b []byte) (uint64, uint64, error) {
 }
 
 func (df *diskFile) readIdx(idx uint64) (uint64, error) {
-	off := int64((idx - df.startIdx) * 16)
+	if idx == df.startIdx {
+		return 0, nil
+	}
+	off := int64((idx - df.startIdx - 1) * 16)
+
 	idxOffByt := make([]byte, 16)
 	if len(df.idxOff) >= 16 {
 		//fmt.Printf("readIdx off=%d, idxOff=%v,  df.idxOff len=%d\n", off, df.idxOff, len(df.idxOff))
