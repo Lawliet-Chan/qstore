@@ -1,5 +1,7 @@
 package qstore
 
+import "github.com/pkg/errors"
+
 type Tx struct {
 	idx uint64
 	off uint64
@@ -8,6 +10,9 @@ type Tx struct {
 }
 
 func (t *Tx) Write(b []byte) (uint64, error) {
+	if int64(len(b)) > t.dq.opt.FileMaxSize {
+		return 0, errors.New("writing data is too large")
+	}
 	idx, off, err := t.dq.write(b)
 	if err != nil {
 		return 0, err
