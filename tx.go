@@ -23,13 +23,6 @@ func (t *Tx) Write(b []byte) (uint64, error) {
 	return idx, nil
 }
 
-func (t *Tx) WriteBatch() *Batch {
-	return &Batch{
-		t:     t,
-		cache: make([][]byte, 0),
-	}
-}
-
 func (t *Tx) Commit() error {
 	return t.dq.writeIdx(t.idx, t.off, t.len)
 }
