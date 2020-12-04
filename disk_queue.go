@@ -52,8 +52,6 @@ func newDiskQueue(dir, key string, opt *Options) (*diskQueue, error) {
 		dkfs.addDiskFile(cf)
 	}
 
-	//TODO:need to pickup all diskFiles from disk.
-
 	return &diskQueue{
 		dkey:           dir + key,
 		diskFiles:      dkfs,
